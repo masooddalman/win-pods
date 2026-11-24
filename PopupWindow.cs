@@ -6,7 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 
-namespace PodPop
+namespace WinPods
 {
     /// <summary>The macOS-style card that slides up from the bottom of the screen.</summary>
     public class PopupWindow : Window

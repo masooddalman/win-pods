@@ -1,6 +1,6 @@
 using System;
 
-namespace PodPop
+namespace WinPods
 {
     public class BatteryInfo
     {

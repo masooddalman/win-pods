@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <AssemblyName>PodPop</AssemblyName>
-    <RootNamespace>PodPop</RootNamespace>
+    <AssemblyName>WinPods</AssemblyName>
+    <RootNamespace>WinPods</RootNamespace>
   </PropertyGroup>
 </Project>
