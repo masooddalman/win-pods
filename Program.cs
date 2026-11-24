@@ -30,24 +30,27 @@ namespace WinPods
         static bool _caseSeen;
         static string _logPath;   // set by --log: raw AirPods packets, for debugging
 
-        static void Log(short rssi, byte[] data)
+        static void Log(string line)
         {
-            try { System.IO.File.AppendAllText(_logPath, DateTime.Now.ToString("HH:mm:ss.fff") + " " + rssi + " " + BitConverter.ToString(data) + "\r\n"); }
+            try { System.IO.File.AppendAllText(_logPath, DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + "\r\n"); }
             catch { }
         }
 
         [STAThread]
         public static void Main(string[] args)
         {
-            using var mutex = new Mutex(true, "Local\\" + AppName, out bool first);
+            // --log: debug mode. Writes every Apple packet and every popup decision to %TEMP%\winpods-ble.log.
+            // It runs beside a normal instance and never shows a popup.
+            bool logMode = Array.IndexOf(args, "--log") >= 0;
+            if (logMode) _logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "winpods-ble.log");
+
+            using var mutex = new Mutex(true, "Local\\" + AppName + (logMode ? "-log" : ""), out bool first);
             if (!first) return;
 
             _app = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
             _popup = new PopupWindow();
             BuildTray();
 
-            if (Array.IndexOf(args, "--log") >= 0)
-                _logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "winpods-ble.log");
             bool demo = Array.IndexOf(args, "--demo") >= 0;
             if (demo)
             {
@@ -100,7 +103,7 @@ namespace WinPods
             {
                 _popup.SetName(_name);
                 _popup.SetBattery(_battery);
-                if (popup && (DateTime.Now - _lastShown).TotalSeconds > 4)
+                if (popup && _logPath == null && (DateTime.Now - _lastShown).TotalSeconds > 4)
                 {
                     _lastShown = DateTime.Now;
                     _popup.Present();
@@ -125,15 +128,17 @@ namespace WinPods
             w.AdvertisementFilter.Advertisement = filter;
             w.Received += (s, e) =>
             {
-                if (e.RawSignalStrengthInDBm < NearRssi) return;
+                short rssi = e.RawSignalStrengthInDBm;
                 foreach (var m in e.Advertisement.ManufacturerData)
                 {
                     if (m.CompanyId != 0x004C) continue;
                     byte[] data = m.Data.ToArray();
+                    if (data.Length == 0 || data[0] != 0x07) continue;
+                    if (_logPath != null) Log("rssi=" + rssi + " connected=" + _connected + " " + BitConverter.ToString(data));
+                    if (rssi < NearRssi) continue;
                     var parsed = new BatteryInfo { Left = _battery.Left, Right = _battery.Right, Case = _battery.Case,
                         LeftCharging = _battery.LeftCharging, RightCharging = _battery.RightCharging, CaseCharging = _battery.CaseCharging };
                     if (!BatteryInfo.TryParse(data, parsed)) continue;
-                    if (_logPath != null) Log(e.RawSignalStrengthInDBm, data);
                     Dispatch(() =>
                     {
                         _battery.Left = parsed.Left; _battery.Right = parsed.Right; _battery.Case = parsed.Case;
@@ -152,6 +157,7 @@ namespace WinPods
                                  && (DateTime.Now - _lastShown).TotalSeconds > 3)
                         {
                             _lastShown = DateTime.Now;
+                            if (_logPath != null) { Log("TRIGGER lid-open popup"); return; }
                             _popup.SetName(_name);
                             _popup.Present();
                         }
@@ -167,17 +173,12 @@ namespace WinPods
         static void BuildTray()
         {
             var menu = new WinForms.ContextMenuStrip();
-            menu.Items.Add("Show now", null, (s, e) => { _popup.SetName(_name); _popup.SetBattery(_battery); _popup.Present(); });
             var auto = new WinForms.ToolStripMenuItem("Start with Windows") { Checked = IsAutoStart(), CheckOnClick = true };
             auto.CheckedChanged += (s, e) => SetAutoStart(auto.Checked);
             menu.Items.Add(auto);
             menu.Items.Add("Exit", null, (s, e) => { _tray.Visible = false; _tray.Dispose(); _app.Shutdown(); });
 
             _tray = new WinForms.NotifyIcon { Icon = MakeIcon(), Visible = true, ContextMenuStrip = menu, Text = "AirPods: not connected" };
-            _tray.MouseClick += (s, e) =>
-            {
-                if (e.Button == WinForms.MouseButtons.Left) { _popup.SetName(_name); _popup.SetBattery(_battery); _popup.Present(); }
-            };
         }
 
         static void UpdateTray()
