@@ -133,8 +133,8 @@ namespace WinPods
                 {
                     if (m.CompanyId != 0x004C) continue;
                     byte[] data = m.Data.ToArray();
+                    if (_logPath != null) Log("addr=" + e.BluetoothAddress.ToString("X12") + " rssi=" + rssi + " connected=" + _connected + " " + BitConverter.ToString(data));
                     if (data.Length == 0 || data[0] != 0x07) continue;
-                    if (_logPath != null) Log("rssi=" + rssi + " connected=" + _connected + " " + BitConverter.ToString(data));
                     if (rssi < NearRssi) continue;
                     var parsed = new BatteryInfo { Left = _battery.Left, Right = _battery.Right, Case = _battery.Case,
                         LeftCharging = _battery.LeftCharging, RightCharging = _battery.RightCharging, CaseCharging = _battery.CaseCharging };
