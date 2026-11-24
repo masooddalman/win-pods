@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +8,6 @@ using Microsoft.Win32;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Enumeration;
-using WinForms = System.Windows.Forms;
 
 namespace WinPods
 {
@@ -20,7 +18,7 @@ namespace WinPods
 
         static System.Windows.Application _app;
         static PopupWindow _popup;
-        static WinForms.NotifyIcon _tray;
+        static TrayIcon _tray;
         static readonly BatteryInfo _battery = new BatteryInfo();
         static string _name = "AirPods Pro";
         static bool _connected;
@@ -172,33 +170,20 @@ namespace WinPods
 
         static void BuildTray()
         {
-            var menu = new WinForms.ContextMenuStrip();
-            var auto = new WinForms.ToolStripMenuItem("Start with Windows") { Checked = IsAutoStart(), CheckOnClick = true };
-            auto.CheckedChanged += (s, e) => SetAutoStart(auto.Checked);
-            menu.Items.Add(auto);
-            menu.Items.Add("Exit", null, (s, e) => { _tray.Visible = false; _tray.Dispose(); _app.Shutdown(); });
-
-            _tray = new WinForms.NotifyIcon { Icon = MakeIcon(), Visible = true, ContextMenuStrip = menu, Text = "AirPods: not connected" };
+            _tray = new TrayIcon
+            {
+                Text = "AirPods: not connected",
+                IsAutoStart = IsAutoStart,
+                SetAutoStart = SetAutoStart,
+                ExitRequested = () => { _tray.Dispose(); _app.Shutdown(); }
+            };
+            _tray.Show();
         }
 
         static void UpdateTray()
         {
             string t = _connected ? _name + "  " + _battery.Summary() : "AirPods: not connected";
-            _tray.Text = t.Length > 63 ? t.Substring(0, 63) : t;
-        }
-
-        static Icon MakeIcon()
-        {
-            using var bmp = new Bitmap(32, 32);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                g.Clear(Color.Transparent);
-                g.FillEllipse(Brushes.White, 6, 2, 16, 16);
-                g.FillRectangle(Brushes.White, 15, 12, 5, 17);
-                g.FillEllipse(Brushes.White, 15, 25, 5, 5);
-            }
-            return Icon.FromHandle(bmp.GetHicon());
+            _tray.Text = t;
         }
 
         // ---------- Start with Windows ----------
