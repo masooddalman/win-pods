@@ -4,7 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-namespace AirPodsPopup
+namespace PodPop
 {
     public enum PodKind { Left, Right, Case }
 

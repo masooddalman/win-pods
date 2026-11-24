@@ -1,6 +1,6 @@
 using System;
 
-namespace AirPodsPopup
+namespace PodPop
 {
     public class BatteryInfo
     {

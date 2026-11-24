@@ -11,11 +11,11 @@ using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Enumeration;
 using WinForms = System.Windows.Forms;
 
-namespace AirPodsPopup
+namespace PodPop
 {
     public static class Program
     {
-        const string AppName = "AirPodsPopup";
+        const string AppName = "PodPop";
         const int NearRssi = -65;   // ignore AirPods that are not close to this PC
 
         static System.Windows.Application _app;
