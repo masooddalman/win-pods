@@ -22,6 +22,7 @@ $s = $sh.CreateShortcut($lnk); $s.TargetPath = $exe; $s.WorkingDirectory = $dir;
 $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WinPods'
 New-Item $k -Force | Out-Null
 Set-ItemProperty $k DisplayName 'WinPods'
+Set-ItemProperty $k DisplayVersion (Get-Item $exe).VersionInfo.FileVersion
 Set-ItemProperty $k DisplayIcon $exe
 Set-ItemProperty $k InstallLocation $dir
 Set-ItemProperty $k UninstallString "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$dir\uninstall.ps1`""
