@@ -42,7 +42,7 @@ namespace WinPods
             bool logMode = Array.IndexOf(args, "--log") >= 0;
             if (logMode) _logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "winpods-ble.log");
 
-            using var mutex = new Mutex(true, "Local\\" + AppName + (logMode ? "-log" : ""), out bool first);
+            using var mutex = new Mutex(true, "Local\\" + AppName + (logMode ? "-log" : Array.IndexOf(args, "--demo") >= 0 ? "-demo" : ""), out bool first);
             if (!first) return;
 
             _app = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
@@ -54,6 +54,7 @@ namespace WinPods
             {
                 _battery.Left = 80; _battery.Right = 70; _battery.Case = 55; _battery.RightCharging = true;
                 _popup.SetBattery(_battery);
+                if (Array.IndexOf(args, "--demo-off") >= 0) _popup.ShowDisconnected();
                 _popup.Present();
             }
             else
@@ -95,12 +96,14 @@ namespace WinPods
 
         static void OnConnectionChanged(string name, bool connected, bool popup)
         {
+            bool wasConnected = _connected;
             _connected = connected;
             if (!string.IsNullOrWhiteSpace(name)) _name = name;
             if (connected)
             {
                 _popup.SetName(_name);
                 _popup.SetBattery(_battery);
+                _popup.ShowConnected();
                 if (popup && _logPath == null && (DateTime.Now - _lastShown).TotalSeconds > 4)
                 {
                     _lastShown = DateTime.Now;
@@ -109,9 +112,15 @@ namespace WinPods
             }
             else
             {
-                _popup.Dismiss();
                 _battery.Left = _battery.Right = _battery.Case = -1;
                 _battery.LeftCharging = _battery.RightCharging = _battery.CaseCharging = false;
+                // Tell the user the AirPods are gone, but only if we knew they were connected.
+                if (wasConnected && popup && _logPath == null)
+                {
+                    _popup.SetName(_name);
+                    _popup.ShowDisconnected();
+                    _popup.Present();
+                }
             }
             UpdateTray();
         }
@@ -150,13 +159,13 @@ namespace WinPods
                         if (parsed.Lid >= 0) _lastLid = parsed.Lid;
                         _caseSeen = parsed.CaseInPacket;
 
-                        if (_popup.IsVisible) _popup.ExtendLife();
-                        else if (_connected && parsed.CaseInPacket && (lidChanged || caseAppeared)
+                        if (!_popup.IsVisible && _connected && parsed.CaseInPacket && (lidChanged || caseAppeared)
                                  && (DateTime.Now - _lastShown).TotalSeconds > 3)
                         {
                             _lastShown = DateTime.Now;
                             if (_logPath != null) { Log("TRIGGER lid-open popup"); return; }
                             _popup.SetName(_name);
+                            _popup.ShowConnected();
                             _popup.Present();
                         }
                     });
