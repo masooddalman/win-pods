@@ -8,6 +8,12 @@ namespace WinPods
         public int Left = -1, Right = -1, Case = -1;
         public bool LeftCharging, RightCharging, CaseCharging;
 
+        // Set by TryParse for the last packet only.
+        // Lid: low 4 bits of the lid byte, which change when the case lid opens or closes (-1 if absent).
+        public int Lid = -1;
+        // True when this packet carried a valid case battery. The case reports it only while its lid is open.
+        public bool CaseInPacket;
+
         /// <summary>
         /// Parses Apple's "proximity pairing" BLE advertisement (company 0x004C, type 0x07).
         /// data = manufacturer payload without the 2-byte company id.
@@ -33,7 +39,9 @@ namespace WinPods
 
             if (left <= 10) { into.Left = left * 10; into.LeftCharging = leftCh; }
             if (right <= 10) { into.Right = right * 10; into.RightCharging = rightCh; }
-            if (caseNibble <= 10) { into.Case = caseNibble * 10; into.CaseCharging = (flags & 0x04) != 0; }
+            into.CaseInPacket = caseNibble <= 10;
+            if (into.CaseInPacket) { into.Case = caseNibble * 10; into.CaseCharging = (flags & 0x04) != 0; }
+            into.Lid = d.Length > 8 ? d[8] & 0x0F : -1;
             return true;
         }
 

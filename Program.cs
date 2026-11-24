@@ -26,6 +26,15 @@ namespace WinPods
         static bool _connected;
         static DateTime _lastShown = DateTime.MinValue;
         static readonly List<object> _keepAlive = new List<object>();
+        static int _lastLid = -1;
+        static bool _caseSeen;
+        static string _logPath;   // set by --log: raw AirPods packets, for debugging
+
+        static void Log(short rssi, byte[] data)
+        {
+            try { System.IO.File.AppendAllText(_logPath, DateTime.Now.ToString("HH:mm:ss.fff") + " " + rssi + " " + BitConverter.ToString(data) + "\r\n"); }
+            catch { }
+        }
 
         [STAThread]
         public static void Main(string[] args)
@@ -37,6 +46,8 @@ namespace WinPods
             _popup = new PopupWindow();
             BuildTray();
 
+            if (Array.IndexOf(args, "--log") >= 0)
+                _logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "winpods-ble.log");
             bool demo = Array.IndexOf(args, "--demo") >= 0;
             if (demo)
             {
@@ -122,13 +133,28 @@ namespace WinPods
                     var parsed = new BatteryInfo { Left = _battery.Left, Right = _battery.Right, Case = _battery.Case,
                         LeftCharging = _battery.LeftCharging, RightCharging = _battery.RightCharging, CaseCharging = _battery.CaseCharging };
                     if (!BatteryInfo.TryParse(data, parsed)) continue;
+                    if (_logPath != null) Log(e.RawSignalStrengthInDBm, data);
                     Dispatch(() =>
                     {
                         _battery.Left = parsed.Left; _battery.Right = parsed.Right; _battery.Case = parsed.Case;
                         _battery.LeftCharging = parsed.LeftCharging; _battery.RightCharging = parsed.RightCharging; _battery.CaseCharging = parsed.CaseCharging;
                         _popup.SetBattery(_battery);
-                        if (_popup.IsVisible) _popup.ExtendLife();
                         UpdateTray();
+
+                        // Lid opened: the lid counter changed, or the case battery became visible again.
+                        bool lidChanged = parsed.Lid >= 0 && _lastLid >= 0 && parsed.Lid != _lastLid;
+                        bool caseAppeared = parsed.CaseInPacket && !_caseSeen;
+                        if (parsed.Lid >= 0) _lastLid = parsed.Lid;
+                        _caseSeen = parsed.CaseInPacket;
+
+                        if (_popup.IsVisible) _popup.ExtendLife();
+                        else if (_connected && parsed.CaseInPacket && (lidChanged || caseAppeared)
+                                 && (DateTime.Now - _lastShown).TotalSeconds > 3)
+                        {
+                            _lastShown = DateTime.Now;
+                            _popup.SetName(_name);
+                            _popup.Present();
+                        }
                     });
                 }
             };
